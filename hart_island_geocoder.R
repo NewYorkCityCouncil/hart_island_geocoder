@@ -10,16 +10,17 @@ df <- read_csv('~/Documents/hart_island_geocode/DOC_Hart_Island_Burial_Records.c
 #add new york to ensure geographic specificity
 tmp <- tibble(location = paste0(unique(df$place_of_death), ", New York"))
 
-
 #hit api
 api <- 'AIzaSyDyhoGlMSwElIT3nz9VTL3bbVd_a2YjxGk'
 register_google(key = api)
 
-#make data frame with lat and lon
-geos <- tmp %>% mutate_geocode(location) 
+# #make data frame with lat and lon
+geos <- tmp %>% mutate_geocode(location)
 
 #save to csv so it isn't lost, in case of shutdown
-#write_csv(geos, 'hart_island_geos.csv')
+write_csv(geos, 'hart_island_geos.csv')
+
+
 
 #rename columns for join
 colnames(geos)[colnames(geos)=="location"] <- "place_of_death"
@@ -37,25 +38,17 @@ df2$tmp <- NULL
 write_csv(df2, 'hart_island_burial_records_geocoded.csv')
 
 
-df2$death_date <- as.Date(df2$death_date, "%m/%d/%Y")
 
 
-ten_years <-  df2 %>% filter(death_date >= as.Date("2007-01-01"))
-
-map <- leaflet(ten_years) %>% 
-  addProviderTiles("CartoDB.Positron") %>% 
-  addMarkers(
-    clusterOptions = markerClusterOptions())
-  # addCircleMarkers(fill = TRUE, fillOpacity = .45, stroke = FALSE, popup = ~place_of_death, radius = 2)
-map
 
 
-`#check for out of state
+
+#check for out of state
 map <- leaflet(df2) %>% 
   addProviderTiles("CartoDB.Positron") %>% 
   addMarkers(
     clusterOptions = markerClusterOptions())
-  #addCircleMarkers(fill = TRUE, fillOpacity = .45, stroke = FALSE, popup = ~place_of_death, radius = 2)
+#addCircleMarkers(fill = TRUE, fillOpacity = .45, stroke = FALSE, popup = ~place_of_death, radius = 2)
 map
 
 ######determine scope of data quality issue#########
