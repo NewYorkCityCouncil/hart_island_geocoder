@@ -83,5 +83,9 @@ quants$data <- NULL
 quants$year <- as.numeric(quants$year)
 quants<-quants[!(quants$key=="0%" | quants$key=='100%'),]
 
+
+#plot quantiles
 ggplot(quants, aes(x = year, y=value, color = key)) + 
   geom_line()
+
+

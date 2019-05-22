@@ -48,7 +48,7 @@ public <- read_csv('~/Documents/hart_island_geocode/Health_and_Hospitals_Corpora
 
 #pull only necessary columns
 
-public_simplified <- select(public, 1,3) 
+public_simplified <- dplyr::select(public, 1,3) 
 
 
 
@@ -84,37 +84,66 @@ df3$fac_type[is.na(df3$fac_type)] <- 'private'
 df3$year <- format(df3$death_date, '%Y')
 
 
-#remove data before 1978 - too inconsistently reported
-#remove unrealistic ages
-df3 <- df3 %>% 
-  filter(year >= 1978) %>% 
-  filter(age < 115)
+# #remove data before 1978 - too inconsistently reported
+# #remove unrealistic ages
+# df3 <- df3 %>% 
+#   filter(year >= 1978) %>% 
+#   filter(age < 115)
 
 write_csv(df3, 'hart_island_updated_data.csv')
 
 
 
+
+#new dataframe where names are corrected so that there's no overlap of points
+#that have the same location but different names
+df4 <- df3 %>%
+  mutate(group_var = paste(round(st_coordinates(geometry)[,1], 6), round(st_coordinates(geometry)[,2], 6))) %>% 
+  group_by(group_var) %>%
+  count(place_of_death) %>%
+  arrange(desc(n)) %>%
+  filter(row_number() == 1) %>%
+  dplyr::select(-n, -group_var) %>%
+  st_join(x = df3,y=., left = TRUE, suffix = c("_new", "_old"))
+
+#remove extras
+df4 <- df4[ , -which(names(df4) %in% c("group_var","place_of_death_old"))]
+
 #make new dataframe with unique location and count of occurences per location
 
-tmp <- as.data.frame(table(df3$place_of_death), stringsAsFactors = FALSE)
-names(tmp) <- c("place_of_death", "count")
+# 1973
+# 1974 - 1977
+# 1978 - 1981
+# 1982 - 1985
+# 1976 - 1989
+# 1990 - 1993
+# 1994 - 1997
+# 1998 - 2001
+# 2002 - 2005
+# 2006 - 2009
+# 2010 - 2013
+# 2013
+
+
+df5 <- as.data.frame(table(df4$place_of_death_new, df4$year), stringsAsFactors = FALSE)
+names(df5) <- c("place_of_death", "year", 'count')
+
+df5$range <- cut(as.numeric(df5$year), (0:11*4)+1970)
+
 
 #joining the unique count data frame with the geo data frame pulled from the api
 #adding new column temp to match the exact string
-df4 <- tmp %>% 
-  mutate(temp = paste0(place_of_death, ", New York")) %>% 
-  left_join(geos, by = c("temp" = 'location'))
-
-#remove temp column
-df4$temp <- NULL
+df5 <- tmpdf %>% 
+  left_join(df4[, c('place_of_death_new', 'fac_type', 'year', 'geometry')])
 
 #join public hospitals df to the HI df so we can get a sense of which of those facilities are public
-df4 <- df4 %>% 
+df5 <- df5 %>% 
   left_join(public_simplified, by = c('place_of_death' = 'facility_name'))
 
 #if the facility type column is NA, it's a private hospital, facility or residence
-df4$facility_type[is.na(df4$facility_type)] <- 'private facility'
-df4$col_public[is.na(df4$col_public)] <- 'private facility'
+df5$facility_type[is.na(df5$facility_type)] <- 'private facility'
+df5$col_public[is.na(df5$col_public)] <- 'private facility'
+df5$facility_type <- NULL
 
 #extract to look exclusively at deaths since beginning of 2007
 ten_years <-  df3 %>% filter(death_date >= as.Date("2007-01-01"))
@@ -126,7 +155,7 @@ ten_years <-  df3 %>% filter(death_date >= as.Date("2007-01-01"))
 pal <- colorFactor(c("navy", "red"), domain = c("private facility", "public"))
 
 
-map <- leaflet(df4) %>% 
+map <- leaflet(df5) %>% 
   addProviderTiles("CartoDB.Positron") %>% 
   #addMarkers(
   #clusterOptions = markerClusterOptions())
