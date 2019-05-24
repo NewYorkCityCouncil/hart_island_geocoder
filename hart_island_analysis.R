@@ -98,7 +98,7 @@ write_csv(df3, 'hart_island_updated_data.csv')
 #new dataframe where names are corrected so that there's no overlap of points
 #that have the same location but different names
 df4 <- df3 %>%
-  mutate(group_var = paste(round(st_coordinates(geometry)[,1], 6), round(st_coordinates(geometry)[,2], 6))) %>% 
+  mutate(group_var = paste(round(st_coordinates(geometry)[,1], 5), round(st_coordinates(geometry)[,2], 5))) %>% 
   group_by(group_var) %>%
   count(place_of_death) %>%
   arrange(desc(n)) %>%
@@ -106,35 +106,36 @@ df4 <- df3 %>%
   dplyr::select(-n, -group_var) %>%
   st_join(x = df3,y=., left = TRUE, suffix = c("_new", "_old"))
 
-#remove extras
+#remove extras, rename _new
 df4 <- df4[ , -which(names(df4) %in% c("group_var","place_of_death_old"))]
+names(df4)[names(df4) == 'place_of_death_new'] <- 'place_of_death'
+
+#geometry to coordinates, to eliminate issues when pulling distinct
+latlon <- st_coordinates(df4)
+df4 <- cbind(df4,latlon)
+df4$geometry <- NULL
+
+#distinct
+df4 <- distinct(df4) %>% 
+  drop_na(place_of_death, year)
+
 
 #make new dataframe with unique location and count of occurences per location
 
-# 1973
-# 1974 - 1977
-# 1978 - 1981
-# 1982 - 1985
-# 1976 - 1989
-# 1990 - 1993
-# 1994 - 1997
-# 1998 - 2001
-# 2002 - 2005
-# 2006 - 2009
-# 2010 - 2013
-# 2013
+#df5 <- as.data.frame(table(df4$place_of_death, df4$year), stringsAsFactors = FALSE)
+
+df5 <- df4 %>%
+  st_as_sf(coords = c("Y", "X")) %>% 
+  count(place_of_death, year) %>% 
+  drop_na(place_of_death, year)
+  
+names(df5)[names(df5) == 'n'] <- 'count'
 
 
-df5 <- as.data.frame(table(df4$place_of_death_new, df4$year), stringsAsFactors = FALSE)
-names(df5) <- c("place_of_death", "year", 'count')
-
+#add range
 df5$range <- cut(as.numeric(df5$year), (0:11*4)+1970)
+df5 <- merge(df5, df4[, c('place_of_death', 'year', 'X', 'Y')])
 
-
-#joining the unique count data frame with the geo data frame pulled from the api
-#adding new column temp to match the exact string
-df5 <- tmpdf %>% 
-  left_join(df4[, c('place_of_death_new', 'fac_type', 'year', 'geometry')])
 
 #join public hospitals df to the HI df so we can get a sense of which of those facilities are public
 df5 <- df5 %>% 
@@ -145,6 +146,119 @@ df5$facility_type[is.na(df5$facility_type)] <- 'private facility'
 df5$col_public[is.na(df5$col_public)] <- 'private facility'
 df5$facility_type <- NULL
 
+df5 <- distinct(df5) %>% 
+  drop_na(place_of_death, year)
+
+map_data <- st_as_sf(df5, coords = c('X','Y'), crs =4326)
+
+
+library(htmltools)
+library(htmlwidgets)
+
+map <-leaflet(map_data) %>% 
+  addProviderTiles("CartoDB.Positron") %>% 
+  #addMarkers(
+  #clusterOptions = markerClusterOptions())
+  addCircleMarkers(
+    fill = TRUE, fillOpacity = .45, stroke = FALSE, 
+    popup = ~place_of_death, radius = ~sqrt(count),
+    color = ~pal(col_public),
+    group = ~range)
+
+mapno2 <- leaflet() %>% 
+  addTiles()
+
+# %>% 
+#   addLayersControl(~range)
+
+# add leaflet-timeline as a dependency
+#  to get the js and css
+mapno2$dependencies[[length(mapno2$dependencies)+1]] <- htmlDependency(
+  name = "leaflet-timeline",
+  version = "1.0.0",
+  src = c("href" = "http://skeate.github.io/Leaflet.timeline/"),
+  script = "javascripts/leaflet.timeline.js",
+  stylesheet = "stylesheets/leaflet.timeline.css"
+)
+
+
+mapno2 %>%
+  onRender(sprintf(
+    '
+    function(el,x){
+    var power_data = %s;
+    
+    var timeline = L.timeline(power_data, {
+    pointToLayer: function(data, latlng){
+    var hue_min = 120;
+    var hue_max = 0;
+    var hue = hue_min;
+    return L.circleMarker(latlng, {
+    radius: 10,
+    color: "hsl("+hue+", 100%%, 50%%)",
+    fillColor: "hsl("+hue+", 100%%, 50%%)"
+    });
+    },
+    steps: 1000,
+    duration: 10000,
+    showTicks: true
+    });
+    timeline.addTo(this);
+    }
+    ',
+    map_data
+  ))
+
+
+
+pal <- colorFactor(c("navy", "red"), domain = c("private facility", "public"))
+
+
+map <- leaflet(map_data) %>% 
+  addProviderTiles("CartoDB.Positron") %>% 
+  #addMarkers(
+  #clusterOptions = markerClusterOptions())
+  addCircleMarkers(
+    fill = TRUE, fillOpacity = .45, stroke = FALSE, 
+    popup = ~place_of_death, radius = ~sqrt(count),
+    color = ~pal(col_public),
+    group = ~range) %>% 
+  addLayersControl(~range)
+map
+
+class(df5$count)
+
+
+
+
+
+
+g <- list(
+  scope = 'new york',
+  projection = list(type = 'albers usa'),
+  showland = TRUE,
+  landcolor = toRGB("gray83"),
+  subunitwidth = 1,
+  countrywidth = 1,
+  subunitcolor = toRGB("white"),
+  countrycolor = toRGB("white")
+)
+
+p <- plot_geo(df5, locationmode = 'new york', sizes = c(1, 250), zoom = 20) %>%
+  add_markers(
+    x = ~X, y = ~Y,
+    size = ~count, color = ~col_public, hoverinfo = "text",
+    text = ~paste(df5$place_of_death, "<br />", df5$count, 'deaths')
+  ) %>%
+  layout(title = '2014 US city populations<br>(Click legend to toggle)', geo = g)
+
+p
+
+
+
+
+
+
 #extract to look exclusively at deaths since beginning of 2007
 ten_years <-  df3 %>% filter(death_date >= as.Date("2007-01-01"))
 
@@ -152,15 +266,9 @@ ten_years <-  df3 %>% filter(death_date >= as.Date("2007-01-01"))
 
 
 
-pal <- colorFactor(c("navy", "red"), domain = c("private facility", "public"))
 
 
-map <- leaflet(df5) %>% 
-  addProviderTiles("CartoDB.Positron") %>% 
-  #addMarkers(
-  #clusterOptions = markerClusterOptions())
-  addCircleMarkers(
-    fill = TRUE, fillOpacity = .45, stroke = FALSE, 
-    popup = ~place_of_death, radius = ~sqrt(count),
-    color = ~pal(col_public))
-map
+nrow(distinct(df5_2[c('place_of_death','year')])) - nrow(distinct(df4[c('place_of_death','year')]))
+
+view(df4[!(duplicated(df4[c('place_of_death','year')]) | duplicated(df4[c('place_of_death','year')], fromLast = TRUE)), ])
+
