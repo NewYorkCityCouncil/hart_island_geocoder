@@ -67,6 +67,37 @@ p <- ggplot(full,aes(x=age)) +
   geom_histogram(data=full[full[, 'year'] > 2013,],fill = "red", alpha = 0.4, binwidth = 1)
 p  
 
+
+#age histogram
+age_hist <- ggplot(full, aes(x=age)) +
+  geom_histogram()
+age_hist
+
+#create duplicate column in full for this next function
+full$dummy <- full$place_of_death
+
+#check count for place of death
+place_count <- aggregate(dummy ~ place_of_death + fac_type + year, data = full, FUN = length)
+names(place_count)[names(place_count)=='dummy'] <- 'count'
+
+
+#replace private with residential/other if fewer than 10 instances per year
+place_count$fac_type[place_count$count <= 3 & 
+                      !str_detect(tolower(place_count$place_of_death), 'hospital')] <- 'residential/other'
+
+
+#sum counts of facility types per year
+bd_fac_type <- aggregate(count ~ year + fac_type, data=place_count, FUN = sum)
+names(bd_fac_type) <- c('year', 'fac_stat', 'count')
+
+#plot line graph of count of each facility type per year
+ggplot(bd_fac_type, aes(x=year, y =count, color = fac_stat)) +
+  geom_line()
+
+#to_csv
+write_csv(bd_fac_type, 'fac_type_breakdown.csv')
+
+
 #same as above but with older data source
 plot_ly(df3) %>% 
   add_histogram(x = df3[df3[, 'year'] < 1991,]$age) %>%

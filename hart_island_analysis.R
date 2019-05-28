@@ -5,7 +5,6 @@ library(leaflet)
 library(sf)
 library(plotly)
 
-
 #pull in csvs again
 
 df2 <- read_csv('hart_island_burial_records_geocoded.csv') 
@@ -167,16 +166,17 @@ library(htmlwidgets)
 
 map_data <- map_data[order(map_data$range),]
 
-map <- leaflet(map_data) %>% 
+map <- leaflet(map_data) %>%
   addProviderTiles("CartoDB.Positron") %>% 
-  #addMarkers(
-  #clusterOptions = markerClusterOptions())
   addCircleMarkers(
     fill = TRUE, fillOpacity = .45, stroke = FALSE, 
     popup = ~place_of_death, radius = ~sqrt(count),
     color = ~pal(col_public),
     group = ~range) %>% 
-  addLayersControl(~range)
+  addLayersControl(baseGroups = ~range, position = 'topright',
+                   options = layersControlOptions(collapsed = FALSE)) %>% 
+  setView(-73.88099670410158,40.72540497175607,  zoom = 10.4) %>% 
+  identity()
 map
 
 
