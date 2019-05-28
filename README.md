@@ -6,6 +6,8 @@ The Hart Island dataset is a dataset of individuals buried at Hart Island. For e
 
 ### Packages Used
 
-library(tidyverse) - dataframe and mutations
-library(janitor) - cleaning the column names
-library(ggmap) - geocoding
+* library(tidyverse) - data frame and mutations
+* library(janitor) - cleaning the column names
+* library(ggmap) - geocoding
+* library(leaflet) - mapping
+* library(sf) - working with spatial data frames

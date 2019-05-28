@@ -6,6 +6,14 @@ library(sf)
 
 df <- read_csv('~/Documents/hart_island_geocode/DOC_Hart_Island_Burial_Records.csv') %>% clean_names()
 
+df$death_date <- as.Date(df$death_date, "%m/%d/%Y")
+
+#add year column
+df$year <- format(df$death_date, '%Y')
+
+#understand distribution of nulls
+aggregate(age ~ year, data=df, function(x) {sum(is.na(x))}, na.action = NULL)
+
 #create temporary data frame with unique locations
 #add new york to ensure geographic specificity
 tmp <- tibble(location = paste0(unique(df$place_of_death), ", New York"))

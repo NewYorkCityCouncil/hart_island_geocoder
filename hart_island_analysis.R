@@ -13,8 +13,6 @@ df2 <- df2[!is.na(df2$lon),] %>%
   st_as_sf(coords = c("lon", "lat")) %>% st_set_crs(4326)
 
 
-
-
 #pull in nyc shapefile
 
 nyc_shape <- read_sf('Borough Boundaries/geo_export_f1dab35b-7e61-450a-9e6d-05e61a66f3ff.shp') %>% 
@@ -83,12 +81,16 @@ df3$fac_type[is.na(df3$fac_type)] <- 'private'
 #add year column
 df3$year <- format(df3$death_date, '%Y')
 
+#understand distribution of nulls and of data as a whole
+aggregate(age ~ year, data=df3, function(x) {sum(is.na(x))}, na.action = NULL)
+table(df3$year)
 
-# #remove data before 1978 - too inconsistently reported
-# #remove unrealistic ages
-# df3 <- df3 %>% 
-#   filter(year >= 1978) %>% 
-#   filter(age < 115)
+
+#remove data before 1978 - too inconsistently reported
+#remove unrealistic ages
+df3 <- df3 %>%
+  filter(year >= 1978 & year <= 2016) %>%
+  filter(age < 115)
 
 write_csv(df3, 'hart_island_updated_data.csv')
 
@@ -106,6 +108,7 @@ df4 <- df3 %>%
   dplyr::select(-n, -group_var) %>%
   st_join(x = df3,y=., left = TRUE, suffix = c("_new", "_old"))
 
+
 #remove extras, rename _new
 df4 <- df4[ , -which(names(df4) %in% c("group_var","place_of_death_old"))]
 names(df4)[names(df4) == 'place_of_death_new'] <- 'place_of_death'
@@ -119,6 +122,7 @@ df4$geometry <- NULL
 df4 <- distinct(df4) %>% 
   drop_na(place_of_death, year)
 
+write.csv(df4, 'full_data_hi.csv')
 
 #make new dataframe with unique location and count of occurences per location
 
@@ -133,8 +137,10 @@ names(df5)[names(df5) == 'n'] <- 'count'
 
 
 #add range
-df5$range <- cut(as.numeric(df5$year), (0:11*4)+1970)
+df5$range <- cut(as.numeric(df5$year), (0:11*4)+1977)
 df5 <- merge(df5, df4[, c('place_of_death', 'year', 'X', 'Y')])
+df5$range <- gsub(".*([0-9]{4}).*([0-9]{4}).*", '\\1-\\2', df5$range)
+
 
 
 #join public hospitals df to the HI df so we can get a sense of which of those facilities are public
@@ -146,14 +152,39 @@ df5$facility_type[is.na(df5$facility_type)] <- 'private facility'
 df5$col_public[is.na(df5$col_public)] <- 'private facility'
 df5$facility_type <- NULL
 
+
+#grab only distinct columns, so there's only one instance per place of death and year
 df5 <- distinct(df5) %>% 
   drop_na(place_of_death, year)
 
+
+#convert back to sf
 map_data <- st_as_sf(df5, coords = c('X','Y'), crs =4326)
 
 
 library(htmltools)
 library(htmlwidgets)
+
+map_data <- map_data[order(map_data$range),]
+
+map <- leaflet(map_data) %>% 
+  addProviderTiles("CartoDB.Positron") %>% 
+  #addMarkers(
+  #clusterOptions = markerClusterOptions())
+  addCircleMarkers(
+    fill = TRUE, fillOpacity = .45, stroke = FALSE, 
+    popup = ~place_of_death, radius = ~sqrt(count),
+    color = ~pal(col_public),
+    group = ~range) %>% 
+  addLayersControl(~range)
+map
+
+
+
+
+
+
+
 
 map <-leaflet(map_data) %>% 
   addProviderTiles("CartoDB.Positron") %>% 
@@ -164,6 +195,11 @@ map <-leaflet(map_data) %>%
     popup = ~place_of_death, radius = ~sqrt(count),
     color = ~pal(col_public),
     group = ~range)
+
+
+map
+
+
 
 mapno2 <- leaflet() %>% 
   addTiles()
@@ -214,17 +250,7 @@ mapno2 %>%
 pal <- colorFactor(c("navy", "red"), domain = c("private facility", "public"))
 
 
-map <- leaflet(map_data) %>% 
-  addProviderTiles("CartoDB.Positron") %>% 
-  #addMarkers(
-  #clusterOptions = markerClusterOptions())
-  addCircleMarkers(
-    fill = TRUE, fillOpacity = .45, stroke = FALSE, 
-    popup = ~place_of_death, radius = ~sqrt(count),
-    color = ~pal(col_public),
-    group = ~range) %>% 
-  addLayersControl(~range)
-map
+
 
 class(df5$count)
 
