@@ -200,7 +200,7 @@ map <- map_data %>%
   addLayersControl(baseGroups = ~unique(range), position = 'topright',
                    options = layersControlOptions(collapsed = FALSE)) %>% 
   addLegend(values = ~col_public, pal = pal, position = 'bottomright') %>% 
-  setView(-73.88099670410158,40.72540497175607,  zoom = 10.4) %>%
+  setView(-73.88099670410158,40.72540497175607,  zoom = 10.5) %>%
   identity()
 map
 
