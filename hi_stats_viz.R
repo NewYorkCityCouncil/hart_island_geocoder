@@ -81,14 +81,22 @@ place_count <- aggregate(dummy ~ place_of_death + fac_type + year, data = full, 
 names(place_count)[names(place_count)=='dummy'] <- 'count'
 
 
-#replace private with residential/other if fewer than 10 instances per year
-place_count$fac_type[place_count$count <= 3 & 
-                      !str_detect(tolower(place_count$place_of_death), 'hospital')] <- 'residential/other'
+#replace private with residential/other, nursing facility based on strings
+place_count$fac_type[!str_detect(tolower(place_count$place_of_death), 'hospital')] <- 'Residential/Other'
+place_count$fac_type[str_detect(tolower(place_count$place_of_death), 'nurs')] <- 'Nursing Facility'
+place_count$fac_type[str_detect(tolower(place_count$place_of_death), 'medical')] <- 'Private Hospital'
+place_count$fac_type[str_detect(tolower(place_count$fac_type), 'private')] <- 'Private Hospital'
+place_count$fac_type[str_detect(tolower(place_count$fac_type), 'public')] <- 'Public Hospital'
+
+
+
 
 
 #sum counts of facility types per year
 bd_fac_type <- aggregate(count ~ year + fac_type, data=place_count, FUN = sum)
 names(bd_fac_type) <- c('year', 'fac_stat', 'count')
+
+write_csv(bd_fac_type, 'facility_count_py.csv')
 
 #plot line graph of count of each facility type per year
 ggplot(bd_fac_type, aes(x=year, y =count, color = fac_stat)) +

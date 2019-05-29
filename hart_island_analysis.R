@@ -143,22 +143,30 @@ df5$range <- gsub(".*([0-9]{4}).*([0-9]{4}).*", '\\1-\\2', df5$range)
 
 
 #join public hospitals df to the HI df so we can get a sense of which of those facilities are public
-df5 <- df5 %>% 
+df5_combined <- df5 %>% 
   left_join(public_simplified, by = c('place_of_death' = 'facility_name'))
 
 #if the facility type column is NA, it's a private hospital, facility or residence
-df5$facility_type[is.na(df5$facility_type)] <- 'private facility'
-df5$col_public[is.na(df5$col_public)] <- 'private facility'
-df5$facility_type <- NULL
+# df5_combined$facility_type[is.na(df5_combined$facility_type)] <- 'private facility'
+df5_combined$col_public[is.na(df5_combined$col_public)] <- 'Private Hospital'
+df5_combined$facility_type <- NULL
+
+
+
+#replace private with residential/other, nursing facility based on strings
+df5_combined$col_public[!str_detect(tolower(df5_combined$place_of_death), 'hospital')] <- 'Residential/Other'
+df5_combined$col_public[str_detect(tolower(df5_combined$place_of_death), 'nurs')] <- 'Nursing Facility'
+df5_combined$col_public[str_detect(tolower(df5_combined$place_of_death), 'medical')] <- 'Private Hospital'
+df5_combined$col_public[str_detect(tolower(df5_combined$col_public), 'public')] <- 'Public Hospital'
 
 
 #grab only distinct columns, so there's only one instance per place of death and year
-df5 <- distinct(df5) %>% 
+df5_combined <- distinct(df5_combined) %>% 
   drop_na(place_of_death, year)
 
 
 #convert back to sf
-map_data <- st_as_sf(df5, coords = c('X','Y'), crs =4326)
+map_data <- st_as_sf(df5_combined, coords = c('X','Y'), crs =4326)
 
 
 library(htmltools)
@@ -166,16 +174,25 @@ library(htmlwidgets)
 
 map_data <- map_data[order(map_data$range),]
 
+pal <- colorFactor(c('#12B886', "#BE4BDB", '#228AE6', "#F59F00"), domain = unique(map_data$col_public))
+
+pal <- colorFactor(councildown::nycc_pal()(4), domain = unique(map_data$col_public))
+
+#c("Residential/Other", "Private Hospital",  "Nursing Facility",  "Public Hospital"
+
+unique(map_data$col_public)
+unique(df5_combined$col_public)
+
 map <- leaflet(map_data) %>%
   addProviderTiles("CartoDB.Positron") %>% 
-  addCircleMarkers(
-    fill = TRUE, fillOpacity = .45, stroke = FALSE, 
+  addCircleMarkers(fill = TRUE, fillOpacity = .45, stroke = FALSE, 
     popup = ~place_of_death, radius = ~sqrt(count),
     color = ~pal(col_public),
     group = ~range) %>% 
-  addLayersControl(baseGroups = ~range, position = 'topright',
+  addLayersControl(baseGroups = ~unique(range), position = 'topright',
                    options = layersControlOptions(collapsed = FALSE)) %>% 
-  setView(-73.88099670410158,40.72540497175607,  zoom = 10.4) %>% 
+  addLegend(values = ~col_public, pal = pal) %>% 
+  setView(-73.88099670410158,40.72540497175607,  zoom = 10.4) %>%
   identity()
 map
 
@@ -247,7 +264,6 @@ mapno2 %>%
 
 
 
-pal <- colorFactor(c("navy", "red"), domain = c("private facility", "public"))
 
 
 
