@@ -199,7 +199,7 @@ map <- map_data %>%
     group = ~range) %>% 
   addLayersControl(baseGroups = ~unique(range), position = 'topright',
                    options = layersControlOptions(collapsed = FALSE)) %>% 
-  addLegend(values = ~col_public, pal = pal, position = 'bottomright') %>% 
+  addLegend(values = ~col_public, pal = pal, position = 'bottomright', title = "Hart Island: Place of Death") %>% 
   setView(-73.88099670410158,40.72540497175607,  zoom = 10.5) 
 map
 
