@@ -6,7 +6,7 @@ The Hart Island dataset is a dataset of individuals buried at Hart Island. For e
 
 This repo serves to geocode the data, manipulate it, combine it with additional datasources regarding public hospitals, and analyze trends in Hart Island burials since the data became most consistent in 1978.
 
-Because this data relies on using Google's paid API to geocode, the council has uploaded a copy of the data to this repo, under the title "hart_island_burial_records_geocoded.csv". This data will not be regularly updated, however, and further geocoding efforts may fall on the user of this dataset.
+Because this data relies on using Google's paid API to geocode, the council has uploaded a copy of the data to this repo, under the title "hart_island_burial_records_geocoded.csv". As a result, the file "hart_island_geocoder.R" does not need to be run in order to analyze this dataset. This data will not be regularly updated, however, and further geocoding efforts may fall on the user of this dataset.
 
 ### Packages Used
 
