@@ -113,13 +113,13 @@ df4 <- df4[ , -which(names(df4) %in% c("group_var","place_of_death_old"))]
 names(df4)[names(df4) == 'place_of_death_new'] <- 'place_of_death'
 
 #geometry to coordinates, to eliminate issues when pulling distinct
-latlon <- st_coordinates(df4)
-df4 <- cbind(df4,latlon)
-df4$geometry <- NULL
-
-#distinct
-df4 <- distinct(df4) %>% 
-  drop_na(place_of_death, year)
+# latlon <- st_coordinates(df4)
+# df4 <- cbind(df4,latlon)
+# df4$geometry <- NULL
+# 
+# #distinct
+# df4 <- distinct(df4) %>% 
+#   drop_na(place_of_death, year)
 
 write.csv(df4, 'full_data_hi.csv')
 
@@ -128,7 +128,7 @@ write.csv(df4, 'full_data_hi.csv')
 #df5 <- as.data.frame(table(df4$place_of_death, df4$year), stringsAsFactors = FALSE)
 
 df5 <- df4 %>%
-  st_as_sf(coords = c("Y", "X")) %>% 
+  # st_as_sf(coords = c("Y", "X")) %>% 
   count(place_of_death, year) %>% 
   drop_na(place_of_death, year)
   
@@ -137,14 +137,14 @@ names(df5)[names(df5) == 'n'] <- 'count'
 
 #add range
 df5$range <- cut(as.numeric(df5$year), (0:11*4)+1977)
-df5 <- merge(df5, df4[, c('place_of_death', 'year', 'X', 'Y')])
+# df5 <- df5 %>% left_join(df4, by = c(""))
 df5$range <- gsub(".*([0-9]{4}).*([0-9]{4}).*", '\\1-\\2', df5$range)
 
 
 
 #join public hospitals df to the HI df so we can get a sense of which of those facilities are public
 df5_combined <- df5 %>% 
-  left_join(public_simplified, by = c('place_of_death' = 'facility_name'))
+  left_join(distinct(public_simplified, facility_name, .keep_all = TRUE), by = c('place_of_death' = 'facility_name'))
 
 #if the facility type column is NA, it's a private hospital, facility or residence
 # df5_combined$facility_type[is.na(df5_combined$facility_type)] <- 'private facility'
@@ -166,8 +166,15 @@ df5_combined <- distinct(df5_combined) %>%
 
 
 #convert back to sf
-map_data <- st_as_sf(df5_combined, coords = c('X','Y'), crs =4326)
+# map_data <- st_as_sf(df5_combined, coords = c('X','Y'), crs =4326)
+map_data <- st_as_sf(df5_combined) %>% 
+  mutate(place_of_death = case_when(place_of_death == "BRONX MUNICIPAL HOSPITAL CENTER" ~ "JACOBI MEDICAL CENTER",
+                                    TRUE ~ place_of_death)) %>% 
+  group_by(range, place_of_death, col_public) %>%
+  summarize(count = sum(count))
 
+
+  
 
 library(htmltools)
 library(htmlwidgets)
@@ -183,7 +190,8 @@ pal <- colorFactor(councildown::nycc_pal()(4), domain = unique(map_data$col_publ
 unique(map_data$col_public)
 unique(df5_combined$col_public)
 
-map <- leaflet(map_data) %>%
+map <- map_data %>% 
+  leaflet() %>%
   addProviderTiles("CartoDB.Positron") %>% 
   addCircleMarkers(fill = TRUE, fillOpacity = .45, stroke = FALSE, 
     popup = ~place_of_death, radius = ~sqrt(count),
@@ -191,7 +199,7 @@ map <- leaflet(map_data) %>%
     group = ~range) %>% 
   addLayersControl(baseGroups = ~unique(range), position = 'topright',
                    options = layersControlOptions(collapsed = FALSE)) %>% 
-  addLegend(values = ~col_public, pal = pal) %>% 
+  addLegend(values = ~col_public, pal = pal, position = 'bottomright') %>% 
   setView(-73.88099670410158,40.72540497175607,  zoom = 10.4) %>%
   identity()
 map
@@ -199,9 +207,23 @@ map
 
 
 
+tst <- map_data %>% 
+  group_by(range, place_of_death, col_public) %>%
+  summarize(count = sum(count)) %>% 
+  filter(str_detect(place_of_death, "JACOBI"), range == "1977-1981") %>% 
+  st_geometry()
 
 
+tst2 <- map_data %>% 
+  group_by(range, place_of_death, col_public) %>%
+  summarize(count = sum(count))
 
+tst2 %>% 
+  ungroup() %>% 
+  mutate(dist = st_distance(tst2, tst, sparse = FALSE) %>% as.numeric()) %>% 
+  arrange(dist)
+
+tst2[st_nearest_points(tst, tst2),]
 
 map <-leaflet(map_data) %>% 
   addProviderTiles("CartoDB.Positron") %>% 
