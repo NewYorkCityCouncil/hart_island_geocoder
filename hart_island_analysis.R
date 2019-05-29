@@ -181,27 +181,26 @@ library(htmlwidgets)
 
 map_data <- map_data[order(map_data$range),]
 
-pal <- colorFactor(c('#12B886', "#BE4BDB", '#228AE6', "#F59F00"), domain = unique(map_data$col_public))
+# pal <- colorFactor(c('#12B886', "#BE4BDB", '#228AE6', "#F59F00"), domain = unique(map_data$col_public))
+pal <- colorFactor(c('#12B886', "#FF0000", '#BE4BDB', "#000080"), domain = unique(map_data$col_public))
 
-pal <- colorFactor(councildown::nycc_pal()(4), domain = unique(map_data$col_public))
+
+#pal <- colorFactor(councildown::nycc_pal()(4), domain = unique(map_data$col_public))
 
 #c("Residential/Other", "Private Hospital",  "Nursing Facility",  "Public Hospital"
 
-unique(map_data$col_public)
-unique(df5_combined$col_public)
 
 map <- map_data %>% 
   leaflet() %>%
   addProviderTiles("CartoDB.Positron") %>% 
-  addCircleMarkers(fill = TRUE, fillOpacity = .45, stroke = FALSE, 
+  addCircleMarkers(fill = TRUE, fillOpacity = .6, stroke = FALSE, 
     popup = ~place_of_death, radius = ~sqrt(count),
     color = ~pal(col_public),
     group = ~range) %>% 
   addLayersControl(baseGroups = ~unique(range), position = 'topright',
                    options = layersControlOptions(collapsed = FALSE)) %>% 
   addLegend(values = ~col_public, pal = pal, position = 'bottomright') %>% 
-  setView(-73.88099670410158,40.72540497175607,  zoom = 10.5) %>%
-  identity()
+  setView(-73.88099670410158,40.72540497175607,  zoom = 10.5) 
 map
 
 
