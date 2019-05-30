@@ -19,7 +19,7 @@ aggregate(age ~ year, data=df, function(x) {sum(is.na(x))}, na.action = NULL)
 tmp <- tibble(location = paste0(unique(df$place_of_death), ", New York"))
 
 #hit api
-api <- 'AIzaSyDyhoGlMSwElIT3nz9VTL3bbVd_a2YjxGk'
+api <- 'enter your api key'
 register_google(key = api)
 
 # #make data frame with lat and lon
