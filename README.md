@@ -21,3 +21,7 @@ Because this data relies on using Google's paid API to geocode, the council has 
 * library(MASS) - KDE
 * library(ggridges) - visuals
 * library(lubridate) - manipulate date
+
+### Data Source
+DOC Hart Island Burial Records
+https://data.cityofnewyork.us/City-Government/DOC-Hart-Island-Burial-Records/c39u-es35
